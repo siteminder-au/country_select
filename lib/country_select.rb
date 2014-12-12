@@ -4,6 +4,8 @@ require 'country_select/version'
 module ActionView
   module Helpers
     module FormOptionsHelper
+      require 'sort_alphabetical'
+
       # Return select and option tags for the given object and method, using country_options_for_select to generate the list of option tags.
       def country_select(object, method, priority_countries = nil, options = {}, html_options = {})
         # check if InstanceTag defined and accepts more than zero attributes in new method
@@ -22,16 +24,27 @@ module ActionView
         country_options = "".html_safe
 
         if priority_countries
-          country_options += options_for_select(priority_countries, selected)
-          country_options += "<option value=\"\" disabled=\"disabled\">-------------</option>\n".html_safe
+          if (unlisted = priority_countries - COUNTRIES).any?
+            raise RuntimeError.new("Supplied priority countries are not in the main list: #{unlisted}")
+          end
+          country_options += options_for_select((translated_countries(priority_countries).zip(priority_countries)).sort_alphabetical, selected)
+          country_options += "<option value=\"\" disabled=\"disabled\">-------------</option>\n"
+
           # prevents selected from being included twice in the HTML which causes
           # some browsers to select the second selected option (not priority)
           # which makes it harder to select an alternative priority country
-          selected=nil if priority_countries.include?(selected)
+          selected = nil if priority_countries.include?(selected)
         end
 
-        return country_options + options_for_select(COUNTRIES, selected)
+        country_options = country_options.html_safe if country_options.respond_to?(:html_safe)
+
+        return country_options + options_for_select((translated_countries(COUNTRIES).zip(COUNTRIES)).sort_alphabetical, selected)
       end
+
+      def translated_countries(countries)
+        countries.map { |country| I18n.translate(country) }
+      end
+
       # All the countries included in the country_options output.
       COUNTRIES = ["Afghanistan", "Aland Islands", "Albania", "Algeria", "American Samoa", "Andorra", "Angola",
         "Anguilla", "Antarctica", "Antigua And Barbuda", "Argentina", "Armenia", "Aruba", "Australia", "Austria",
